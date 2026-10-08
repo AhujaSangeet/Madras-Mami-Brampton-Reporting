@@ -36,6 +36,7 @@ When the report is created you can:
 - Expenses by vendor and a day-by-day table.
 - Warning for days with no report.
 - Record cash taken out of the envelope (bank deposit, payroll, etc.).
+- **Daily** view with till and envelope breakdown, plus that day's closing report, expense invoices and Toast report photos to save or share (with one tap to share everything).
 - Share the summary as an image or download it as CSV.
 - Settings: standard till amount, bi-weekly start date, change PIN, backup and restore.
 
@@ -46,7 +47,8 @@ There is no server or database. Reports are saved in the **browser of the device
 - Always close from the **same phone or tablet** so the till balance carries over correctly.
 - Use **Manager → Backup all data** regularly. Use **Restore from backup** to move to a new device.
 - Clearing browser data erases the history.
-- Receipt and Toast photos are **not** stored in the app; they are only used to create the images you share.
+- The closing report image, receipt photos and Toast photo are also saved in the browser (IndexedDB) and appear in **Manager → Daily** under "Photos for this day", where they can be shared or saved again.
+- The backup file contains the numbers only, **not** the photos.
 - The manager PIN is a convenience lock, not real security.
 
 ## Deploy on GitHub Pages

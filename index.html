@@ -39,7 +39,7 @@ input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px}
 #rep .st{margin:18px 0 10px;padding:13px;text-align:center;font-weight:700;font-size:20px;letter-spacing:1px;border-radius:8px}
 #rep .ft{text-align:center;font-size:11px;letter-spacing:2px;color:#8a7a68;padding:4px 0 14px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--hd)}.tabs button{padding:12px;border:0;background:transparent;color:#cfd9cf;font:600 14px Montserrat,system-ui,sans-serif;border-bottom:3px solid transparent}.tabs .on{color:#fff;border-bottom-color:var(--gold)}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}.seg button{padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 13px Montserrat,sans-serif}.seg .on{background:#14573a;color:#fff;border-color:#14573a}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.seg button{padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 13px Montserrat,sans-serif}.seg .on{background:#14573a;color:#fff;border-color:#14573a}
 .pn{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;font-weight:600}.pn button{width:46px;padding:8px}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tile{background:var(--soft);border-radius:10px;padding:9px 10px;font-size:11px;letter-spacing:.3px;text-transform:uppercase;color:var(--mut)}.tile b{display:block;font-size:17px;color:var(--ink);letter-spacing:0;text-transform:none}
 .mh{background:#14573a;color:#fff;font-weight:700;font-size:13px;padding:7px 10px;border-radius:8px;margin:14px 0 6px}.mt{font-weight:700;font-size:17px;color:var(--brand)}
@@ -85,17 +85,18 @@ input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px}
 <div class="sub" style="margin-top:8px">The PIN only keeps casual eyes out. It is not bank-grade security.</div></div>
 <div id="mgr" hidden>
 <div id="stor" class="miss" style="margin-bottom:8px"></div>
-<div class="seg" id="seg"><button data-m="w" class="on">Weekly</button><button data-m="b">Bi-weekly</button><button data-m="m">Monthly</button></div>
+<div class="seg" id="seg"><button data-m="d">Daily</button><button data-m="w" class="on">Weekly</button><button data-m="b">Bi-weekly</button><button data-m="m">Monthly</button></div>
 <div class="pn"><button class="btn" id="prv">‹</button><span id="plabel"></span><button class="btn" id="nxt">›</button></div>
 <div class="card" id="msum"></div>
 <div class="acts" style="margin-bottom:12px"><button class="btn pri" id="msh">Share summary image</button><button class="btn" id="csv">Download CSV</button></div>
+<div class="card" id="pcard" hidden><h2>Photos for this day</h2><div id="pl"></div><div class="acts" style="margin-top:8px"><button class="btn pri" id="pall">Share everything for this day</button><button class="btn" id="psv">Save all photos (JPG)</button></div><div class="sub" style="margin-top:6px">Closing report, expense invoices and Toast sales report, in posting order. "Share everything" adds the day's summary image first.</div></div>
 <div class="card"><h2>Cash taken out of envelope</h2><div class="sub" style="margin-bottom:8px">Bank deposits, payroll, owner draws. Keeps the envelope balance true.</div>
 <div class="row"><div><label>Date</label><input type="date" id="wdd"></div><div><label>Amount $</label><input type="number" id="wda" inputmode="decimal" step="0.01"></div></div>
 <input id="wdn" placeholder="Note (bank deposit, payroll…)" style="margin-bottom:8px"><button class="btn" id="wdadd" style="width:100%">Record</button><div id="wdl" style="margin-top:8px"></div></div>
-<div class="card"><h2>All saved reports</h2><div class="sub" style="margin-bottom:6px">Tap a row to open its week.</div><div id="hist"></div></div>
+<div class="card"><h2>All saved reports</h2><div class="sub" style="margin-bottom:6px">Tap a row to open that day.</div><div id="hist"></div></div>
 <div class="card"><h2>Settings &amp; backup</h2><div class="row"><div><label>Standard till $</label><input id="sf" type="number" step="0.01"></div><div><label>Bi-weekly starts</label><input id="sa" type="date"></div></div>
 <div class="acts"><button class="btn" id="cpin">Change PIN</button><button class="btn" id="bk">Backup all data (file)</button><button class="btn" id="rs">Restore from backup</button><input type="file" id="rsf" accept="application/json" hidden></div>
-<div class="sub" style="margin-top:8px">Reports are saved on <b>this device's browser</b>. Close from the same phone or tablet every day, and back up regularly.</div></div>
+<div class="sub" style="margin-top:8px">Reports and photos are saved on <b>this device's browser</b>. Close from the same phone or tablet every day. The backup file holds the numbers only, not the photos.</div></div>
 </div></main>
 <div id="rep"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -162,12 +163,24 @@ S.recs=S.recs.filter(r=>r.date!==d);S.recs.push(rec);S.recs.sort((a,b)=>a.date<b
 $('go').disabled=true;$('go').textContent='Building…';
 try{await document.fonts.ready;const cv=await html2canvas($('rep'),{scale:3,backgroundColor:'#f8f4ec'}),b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.95));
 files=[new File([b],`closing-report-${d}.jpg`,{type:'image/jpeg'}),...ex.map((x,i)=>new File([x.f],`receipt-${i+1}-${x.v.replace(/\W+/g,'')}-${d}.jpg`,{type:'image/jpeg'})),new File([toast],`toast-sales-report-${d}.jpg`,{type:'image/jpeg'})];
+try{await pSave(d,files)}catch(e){alert('Report saved, but the photos could not be stored for the Manager on this browser.')}
 $('out').src=URL.createObjectURL(b);showFiles();$('rc').textContent=S.recs.length;$('res').hidden=false;$('res').scrollIntoView({behavior:'smooth'})}catch(e){alert('The report is saved in Manager, but the image could not be built. Tap Create closing report to try the image again.')}
 $('go').textContent='Create closing report';calc()};
 $('share').onclick=async()=>{try{if(navigator.canShare&&navigator.canShare({files}))await navigator.share({files,title:'Closing report'});else{alert('Sharing not supported here – saving images instead.');saveF(files)}}catch(e){}};
 function saveF(fs){fs.forEach((f,i)=>setTimeout(()=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()},i*400))}
-function showFiles(){$('fl').innerHTML=files.map((f,i)=>`<div class="s" style="align-items:center;gap:8px"><img src="${URL.createObjectURL(f)}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"><span style="flex:1;font-size:12px;word-break:break-all">${f.name}</span><button class="btn sm" data-s="${i}">Save</button><button class="btn sm" data-w="${i}">WhatsApp</button></div>`).join('')}
-$('fl').onclick=async e=>{const s=e.target.dataset.s,w=e.target.dataset.w;if(s!==undefined)saveF([files[s]]);if(w!==undefined)try{if(navigator.canShare&&navigator.canShare({files:[files[w]]}))await navigator.share({files:[files[w]]});else{alert('Sharing not supported here – saved instead.');saveF([files[w]])}}catch(x){}};
+/* photo storage (IndexedDB) */
+let DB=null;const reqP=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const idb=()=>DB?Promise.resolve(DB):new Promise((res,rej)=>{try{const q=indexedDB.open('mmc-photos',1);q.onupgradeneeded=()=>q.result.createObjectStore('p',{keyPath:'id'});q.onsuccess=()=>{DB=q.result;res(DB)};q.onerror=()=>rej(q.error)}catch(e){rej(e)}});
+const kr=d=>IDBKeyRange.bound(d+'|',d+'|\uffff');
+async function pSave(d,fs){const db=await idb(),t=db.transaction('p','readwrite'),s=t.objectStore('p');s.delete(kr(d));fs.forEach((f,i)=>s.put({id:d+'|'+String(i).padStart(2,'0'),name:f.name,type:f.type,blob:f}));return new Promise((res,rej)=>{t.oncomplete=res;t.onerror=t.onabort=()=>rej(t.error)})}
+async function pGet(d){const db=await idb();return reqP(db.transaction('p').objectStore('p').getAll(kr(d)))}
+async function pDel(d){const db=await idb(),t=db.transaction('p','readwrite');t.objectStore('p').delete(kr(d));return new Promise(r=>t.oncomplete=r)}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+async function shareList(fs){try{if(navigator.canShare&&navigator.canShare({files:fs}))await navigator.share({files:fs});else{alert('Sharing not supported here – saving instead.');saveF(fs)}}catch(e){}}
+const fileRows=l=>l.map((f,i)=>`<div class="s" style="align-items:center;gap:8px"><img src="${URL.createObjectURL(f)}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"><span style="flex:1;font-size:12px;word-break:break-all">${f.name}</span><button class="btn sm" data-s="${i}">Save</button><button class="btn sm" data-w="${i}">WhatsApp</button></div>`).join('');
+const fileAct=(l,e)=>{const s=e.target.dataset.s,w=e.target.dataset.w;if(s!==undefined)saveF([l[s]]);if(w!==undefined)shareList([l[w]])};
+function showFiles(){$('fl').innerHTML=fileRows(files)}
+$('fl').onclick=e=>fileAct(files,e);
 $('mgo').onclick=()=>{jumped=false;tab(2);window.scrollTo(0,0)};
 $('dl').onclick=()=>saveF(files);$('edit').onclick=()=>{$('res').hidden=true;window.scrollTo({top:0,behavior:'smooth'})};$('newr').onclick=()=>location.reload();
 /* ---------- manager ---------- */
@@ -177,29 +190,32 @@ $('unl').onclick=()=>{const v=$('pin').value.trim();if(!S.pin){if(v.length<4)ret
 $('cpin').onclick=()=>{const v=prompt('New PIN (4+ digits)');if(v&&v.length>=4){S.pin=H(v);save();alert('PIN changed')}};
 const anchor=()=>{if(S.anchor)return S.anchor;const f=S.recs[0]?P(S.recs[0].date):new Date();f.setHours(12);f.setDate(f.getDate()-((f.getDay()+6)%7));return iso(f)};
 function rng(){const t=new Date();t.setHours(12,0,0,0);let a,b;
-if(mode=='w'){a=new Date(t);a.setDate(a.getDate()-((a.getDay()+6)%7)+7*off);b=new Date(a);b.setDate(b.getDate()+6)}
+if(mode=='d'){a=new Date(t);a.setDate(a.getDate()+off);b=new Date(a)}
+else if(mode=='w'){a=new Date(t);a.setDate(a.getDate()-((a.getDay()+6)%7)+7*off);b=new Date(a);b.setDate(b.getDate()+6)}
 else if(mode=='b'){const an=P(anchor()),k=Math.floor(Math.round((t-an)/864e5)/14)+off;a=new Date(an);a.setDate(a.getDate()+14*k);b=new Date(a);b.setDate(b.getDate()+13)}
 else{a=new Date(t.getFullYear(),t.getMonth()+off,1,12);b=new Date(t.getFullYear(),t.getMonth()+off+1,0,12)}return[iso(a),iso(b)]}
 $('seg').onclick=e=>{const m=e.target.dataset.m;if(!m)return;mode=m;off=0;[...$('seg').children].forEach(x=>x.className=x.dataset.m==m?'on':'');mgr()};
 $('prv').onclick=()=>{off--;mgr()};$('nxt').onclick=()=>{off++;mgr()};
 const sm=(a,k)=>r2(a.reduce((s,r)=>s+(+r[k]||0),0));
-function jumpTo(ds){const t=new Date();t.setHours(12,0,0,0);const mon=x=>{const a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};mode='w';off=Math.round((mon(P(ds))-mon(t))/6048e5);[...$('seg').children].forEach(x=>x.className=x.dataset.m=='w'?'on':'');mgr();window.scrollTo({top:0,behavior:'smooth'})}
+function jumpTo(ds,dm){const t=new Date();t.setHours(12,0,0,0);const mon=x=>{const a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};mode=dm?'d':'w';off=dm?Math.round((P(ds)-t)/864e5):Math.round((mon(P(ds))-mon(t))/6048e5);[...$('seg').children].forEach(x=>x.className=x.dataset.m==mode?'on':'');mgr();window.scrollTo({top:0,behavior:'smooth'})}
 const storOK=()=>{try{localStorage.setItem('mmt','1');localStorage.removeItem('mmt');return true}catch(e){return false}};
-$('hist').onclick=e=>{const j=e.target.dataset.j,x=e.target.dataset.del;if(j)jumpTo(j);if(x&&confirm('Delete the report for '+x+'? Later days are not recalculated.')){S.recs=S.recs.filter(r=>r.date!==x);save();mgr()}};
-function mgr(){const[a,b]=rng(),rs=S.recs.filter(r=>r.date>=a&&r.date<=b);$('plabel').textContent=`${fd(a)} – ${fd(b)}`;
+$('hist').onclick=e=>{const j=e.target.dataset.j,x=e.target.dataset.del;if(j)jumpTo(j,1);if(x&&confirm('Delete the report for '+x+'? Later days are not recalculated.')){S.recs=S.recs.filter(r=>r.date!==x);save();pDel(x).catch(()=>{});mgr()}};
+const DD=(r,R)=>`<div class="mh">TILL &amp; ENVELOPE</div>${R('Opening till',r.open)}${R('+ Cash sales',r.cash)}${R('− Expenses',-r.expT)}${R('Should have',r.expected,1)}${R('Counted',r.counted)}${R('Difference',r.diff,1)}${R('💼 To envelope',r.env,1)}${R('Left in till',r.tillEnd,1)}<div class="sub" style="margin-top:6px">Closed by ${(r.by||'').replace(/</g,'&lt;')}${r.why?' · Reason: '+r.why.replace(/</g,'&lt;'):''}</div>`;
+function mgr(){const[a,b]=rng(),rs=S.recs.filter(r=>r.date>=a&&r.date<=b);const lb=mode=='d'?fd(a):`${fd(a)} – ${fd(b)}`;$('plabel').textContent=lb;
 const envIn=r2(sm(S.recs.filter(r=>r.date<=b),'env')-sm(S.wd.filter(w=>w.date<=b),'amt')),last=S.recs.filter(r=>r.date<=b).pop(),till=last?last.tillEnd:0;
 const vm={};rs.forEach(r=>r.exp.forEach(x=>vm[x.v]=r2((vm[x.v]||0)+x.a)));const todayS=iso(new Date()),miss=[];
 for(let d=P(a);iso(d)<=b&&iso(d)<=todayS;d.setDate(d.getDate()+1))if(!rs.some(r=>r.date===iso(d)))miss.push(fd(iso(d)));
 const df=sm(rs,'diff'),T=(l,v,c)=>`<div class="tile">${l}<b class="${c||''}">${M(v)}</b></div>`,R=(l,v,b)=>`<div class="s" style="${b?'font-weight:700':''}"><span>${l}</span><span>${M(v)}</span></div>`;
-$('msum').innerHTML=`<div style="text-align:center"><div class="mt">Madras Mami · Cash Summary</div><div class="sub">${fd(a)} – ${fd(b)} · ${rs.length} day${rs.length==1?'':'s'} reported</div></div>
+$('msum').innerHTML=`<div style="text-align:center"><div class="mt">Madras Mami · Cash Summary</div><div class="sub">${lb} · ${rs.length} day${rs.length==1?'':'s'} reported</div></div>
 <div class="tiles" style="margin-top:10px">${T('Net sales',sm(rs,'net'))}${T('Cash sales',sm(rs,'cash'))}${T('Expenses',sm(rs,'expT'))}${T('Cash tips',sm(rs,'tips'))}${T('Cash to envelope',sm(rs,'env'))}${T('Till over / short',df,Math.abs(df)<.005?'ok2':'neg')}</div>
 <div class="mh">CASH ON HAND AT ${fd(b).toUpperCase()}</div>${R('Envelope balance',envIn)}${R('Till',till)}${R('Total cash',r2(envIn+till),1)}
-<div class="mh">EXPENSES BY VENDOR</div>${Object.entries(vm).sort((x,y)=>y[1]-x[1]).map(([k,v])=>R(k,v)).join('')||'<div class="sub">None</div>'}
-<div class="mh">DAILY</div><div class="sc"><table class="t"><tr><th>Day</th><th>Net</th><th>Cash</th><th>Exp</th><th>Envelope</th><th>Diff</th></tr>${rs.map(r=>`<tr><td>${fd(r.date)}</td><td>${r.net.toFixed(2)}</td><td>${r.cash.toFixed(2)}</td><td>${r.expT.toFixed(2)}</td><td>${r.env.toFixed(2)}</td><td class="${Math.abs(r.diff)<.005?'ok2':'neg'}">${r.diff.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">No reports</td></tr>'}</table></div>
+${mode=='d'&&rs[0]?DD(rs[0],R):''}<div class="mh">EXPENSES BY VENDOR</div>${Object.entries(vm).sort((x,y)=>y[1]-x[1]).map(([k,v])=>R(k,v)).join('')||'<div class="sub">None</div>'}
+${mode=='d'?'':`<div class="mh">DAILY</div><div class="sc"><table class="t"><tr><th>Day</th><th>Net</th><th>Cash</th><th>Exp</th><th>Envelope</th><th>Diff</th></tr>${rs.map(r=>`<tr><td>${fd(r.date)}</td><td>${r.net.toFixed(2)}</td><td>${r.cash.toFixed(2)}</td><td>${r.expT.toFixed(2)}</td><td>${r.env.toFixed(2)}</td><td class="${Math.abs(r.diff)<.005?'ok2':'neg'}">${r.diff.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">No reports</td></tr>'}</table></div>`}
 ${miss.length?`<div class="miss" style="margin-top:8px">No report for: ${miss.join(', ')}</div>`:''}`;
 const ws2=S.wd.filter(w=>w.date>=a&&w.date<=b);$('wdl').innerHTML=ws2.map(w=>`<div class="s"><span>${fd(w.date)} · ${(w.note||'').replace(/</g,'&lt;')}</span><span>${M(w.amt)} <button class="x" data-d="${S.wd.indexOf(w)}">×</button></span></div>`).join('');
 $('stor').textContent=storOK()?'':'⚠ This browser is blocking saved data, so reports will be lost when the page closes. Open the app directly from its web link in Safari or Chrome.';
 $('hist').innerHTML=[...S.recs].reverse().map(r=>`<div class="s" style="align-items:center"><span data-j="${r.date}" style="flex:1;cursor:pointer">${fd(r.date)} · net ${M(r.net)} · envelope ${M(r.env)}</span><button class="x" data-del="${r.date}">×</button></div>`).join('')||'<div class="sub">No reports saved on this device yet.</div>';
+$('pcard').hidden=mode!='d';if(mode=='d')loadP(a);
 $('sf').value=S.float;$('sa').value=anchor()}
 $('wdadd').onclick=()=>{const v=N($('wda').value);if(!v||!$('wdd').value)return alert('Enter date and amount');S.wd.push({date:$('wdd').value,amt:v,note:$('wdn').value.trim()});S.wd.sort((x,y)=>x.date<y.date?-1:1);save();$('wda').value='';$('wdn').value='';mgr()};
 $('wdl').onclick=e=>{const i=e.target.dataset.d;if(i!==undefined&&confirm('Delete this entry?')){S.wd.splice(i,1);save();mgr()}};
@@ -207,8 +223,13 @@ $('sf').onchange=()=>{S.float=N($('sf').value)||500;save();setOpen();calc();mgr(
 $('csv').onclick=()=>{const[a,b]=rng(),rs=S.recs.filter(r=>r.date>=a&&r.date<=b),q=s=>'"'+String(s).replace(/"/g,'""')+'"';
 const t=['Date,Closed by,Net sales,Cash sales,Cash tips,Expenses,Counted,Difference,To envelope,Left in till',...rs.map(r=>[r.date,q(r.by),r.net,r.cash,r.tips,r.expT,r.counted,r.diff,r.env,r.tillEnd].join(','))].join('\n');
 saveF([new File([t],`madras-mami-${a}_to_${b}.csv`,{type:'text/csv'})])};
-$('msh').onclick=async()=>{try{await document.fonts.ready;const cv=await html2canvas($('msum'),{scale:2,backgroundColor:getComputedStyle(document.body).backgroundColor}),b=await new Promise(r=>cv.toBlob(r,'image/png')),f=new File([b],'madras-mami-cash-summary.png',{type:'image/png'});
-if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else saveF([f])}catch(e){}};
+async function sumFile(){await document.fonts.ready;const cv=await html2canvas($('msum'),{scale:2,backgroundColor:getComputedStyle(document.body).backgroundColor}),b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.93));return new File([b],`madras-mami-summary-${rng()[0]}.jpg`,{type:'image/jpeg'})}
+let pf=[],ptk=0;
+async function loadP(d){const tk=++ptk;let r=[];try{r=await pGet(d)}catch(e){}if(tk!==ptk)return;pf=r.map(x=>new File([x.blob],x.name,{type:x.type||'image/jpeg'}));$('pl').innerHTML=pf.length?fileRows(pf):'<div class="sub">No photos saved for this day.</div>'}
+$('pl').onclick=e=>fileAct(pf,e);
+$('msh').onclick=async()=>{try{shareList([await sumFile()])}catch(e){}};
+$('pall').onclick=async()=>{try{shareList([await sumFile(),...pf])}catch(e){}};
+$('psv').onclick=()=>saveF(pf);
 $('bk').onclick=()=>saveF([new File([JSON.stringify(S)],`madras-mami-backup-${iso(new Date())}.json`,{type:'application/json'})]);
 $('rs').onclick=()=>$('rsf').click();
 $('rsf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.recs))throw 0;if(confirm(`Restore ${j.recs.length} reports? This replaces data on this device.`)){S=Object.assign({recs:[],wd:[],float:500,pin:'',anchor:''},j);save();location.reload()}}catch(x){alert('That is not a valid backup file.')}};
