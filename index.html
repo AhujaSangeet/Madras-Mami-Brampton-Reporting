@@ -75,9 +75,9 @@ input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px}
 
 <div class="card"><ul class="chk" id="chk"></ul><button class="btn pri" id="go" style="width:100%" disabled>Create closing report</button></div>
 
-<div class="card" id="res" hidden><h2>✅ Report created</h2><div class="stat ok" style="margin:0 0 10px">Saved to Manager · <span id="rc"></span> report(s) on this device</div><img id="out" alt="Closing report"><div id="fl" style="margin-top:10px"></div><div class="acts">
-<button class="btn pri" id="share">Share all to WhatsApp</button><button class="btn" id="dl">Save all to phone (JPG)</button><button class="btn" id="mgo">Open Manager</button><button class="btn" id="edit">Edit report</button><button class="btn" id="newr">Start next report</button></div>
-<div class="sub" style="margin-top:8px">WhatsApp: pick your sales group in the share sheet. On iPhone choose "Save Image" in the share sheet to put pictures in Photos. Post order: closing report → expense invoices → Toast report.</div></div>
+<div class="card" id="res" hidden><h2>✅ Report created</h2><div class="stat ok" style="margin:0 0 10px">Saved to Manager · <span id="rc"></span> report(s) on this device</div><div class="sub" id="cs" style="margin-bottom:8px"></div><img id="out" alt="Closing report"><div id="fl" style="margin-top:10px"></div><div class="acts">
+<button class="btn pri" id="share">Share all to WhatsApp</button><button class="btn" id="dl">Save all to phone (JPG)</button><button class="btn" id="dat">Send report data to manager (file)</button><button class="btn" id="mgo">Open Manager</button><button class="btn" id="edit">Edit report</button><button class="btn" id="newr">Start next report</button></div>
+<div class="sub" style="margin-top:8px">WhatsApp: pick your sales group in the share sheet. On iPhone choose "Save Image" in the share sheet to put pictures in Photos. Staff using another phone: also tap "Send report data to manager" so the manager can add it with Restore. Post order: closing report → expense invoices → Toast report.</div></div>
 </main>
 
 <main id="v2" hidden>
@@ -95,32 +95,52 @@ input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px}
 <input id="wdn" placeholder="Note (bank deposit, payroll…)" style="margin-bottom:8px"><button class="btn" id="wdadd" style="width:100%">Record</button><div id="wdl" style="margin-top:8px"></div></div>
 <div class="card"><h2>All saved reports</h2><div class="sub" style="margin-bottom:6px">Tap a row to open that day.</div><div id="hist"></div></div>
 <div class="card"><h2>Settings &amp; backup</h2><div class="row"><div><label>Standard till $</label><input id="sf" type="number" step="0.01"></div><div><label>Bi-weekly starts</label><input id="sa" type="date"></div></div>
+<div class="mh" style="margin-top:4px">CLOUD (shared by all phones)</div><label>Web app URL (from Google)</label><input id="cu" placeholder="https://script.google.com/macros/s/…/exec" style="margin-bottom:8px"><label>Manager cloud key</label><input id="mk" type="password" placeholder="Paste manager key">
+<div class="acts" style="margin:8px 0"><button class="btn" id="ctest">Save &amp; test connection</button><button class="btn" id="clink">Send staff link (WhatsApp)</button><button class="btn" id="cpull">Pull all reports from cloud</button><button class="btn" id="cpush">Upload this phone's reports to cloud</button></div><div class="sub" id="cs2" style="margin-bottom:10px"></div>
 <div class="acts"><button class="btn" id="cpin">Change PIN</button><button class="btn" id="bk">Backup all data (file)</button><button class="btn" id="rs">Restore from backup</button><input type="file" id="rsf" accept="application/json" hidden></div>
-<div class="sub" style="margin-top:8px">Reports and photos are saved on <b>this device's browser</b>. Close from the same phone or tablet every day. The backup file holds the numbers only, not the photos.</div></div>
+<div class="sub" style="margin-top:8px">Reports and photos are saved on <b>this device's browser</b>. Close from the same phone or tablet every day. The backup file holds the numbers only, not the photos. Do not use Private Browsing, and always open the app the same way (Home Screen icon or Safari, not both).</div></div>
 </div></main>
 <div id="rep"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const $=id=>document.getElementById(id),N=v=>parseFloat(v)||0,r2=n=>Math.round(n*100)/100,M=n=>(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const D=[100,50,20,10,5,2,1,.25,.1,.05],V=['Costco','Walmart','Freshco','Subzi Mandi','Anaj Mart','Staple Canada','Ram','Yashwanth','Chulha Chakki','Staff','Other'];
-let S={recs:[],wd:[],float:500,pin:'',anchor:''};
+let S={recs:[],wd:[],float:500,pin:'',anchor:'',q:[],mkey:'',cp:null};
 try{const s=JSON.parse(localStorage.getItem('mmc1'));if(s&&Array.isArray(s.recs))S=Object.assign(S,s)}catch(e){}
+S.q=S.q||[];
 const save=()=>{try{localStorage.setItem('mmc1',JSON.stringify(S))}catch(e){alert('Could not save on this device – check browser storage settings.')}};
 const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10),P=s=>new Date(s+'T12:00'),fd=s=>P(s).toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
 let ex=[],ws=[],toast=null,files=[],editO=false,envM=false,C={};
 $('date').value=iso(new Date());
 $('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
 function tab(n){$('v1').hidden=n!=1;$('v2').hidden=n!=2;$('t1').className=n==1?'on':'';$('t2').className=n==2?'on':'';if(n==2)lockUI()}
+/* ---------- cloud ---------- */
+const b64u=s=>btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),ub64=s=>atob(s.replace(/-/g,'+').replace(/_/g,'/'));
+try{const c=new URLSearchParams(location.search).get('c');if(c){S.curl=ub64(c);save();history.replaceState(null,'',location.pathname)}}catch(e){}
+const CLOUD={url:S.curl||'',key:'1f87fa1e777b5e87cb12'},cloudOn=()=>!!(CLOUD.url&&CLOUD.key);
+async function cget(p,k){const r=await fetch(CLOUD.url+'?'+new URLSearchParams({...p,key:k||CLOUD.key}));return r.json()}
+async function cpost(o,k){const r=await fetch(CLOUD.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...o,key:k||CLOUD.key})});return r.json()}
+const b64=f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.readAsDataURL(f)});
+async function syncDate(d){const rec=S.recs.find(r=>r.date===d);if(!rec)return;let j=await cpost({action:'rec',rec});if(!j.ok)throw new Error(j.error);
+let ps=[];try{ps=await pGet(d)}catch(e){}
+for(let i=0;i<ps.length;i++){j=await cpost({action:'photo',date:d,idx:i,name:ps[i].name,type:ps[i].type,data:await b64(ps[i].blob)});if(!j.ok)throw new Error(j.error)}}
+let flushing=false;
+async function flush(){if(!cloudOn()||!S.q.length||flushing)return;flushing=true;cstat('⏳ Uploading…');for(const d of [...S.q]){try{await syncDate(d);S.q=S.q.filter(x=>x!==d);save()}catch(e){cstat('⚠ Upload failed ('+e.message+') – will retry');flushing=false;return}}flushing=false;cstat()}
+function cstat(m){const n=S.q.length,t=m||(!cloudOn()?'☁ Cloud sync is not set up – reports stay on this phone only':n?`⏳ ${n} report(s) waiting to upload – retries automatically`:'☁ All reports uploaded ✓');['cs','cs2'].forEach(i=>{if($(i))$(i).textContent=t})}
+async function cloudPrev(){if(!cloudOn())return;const d=$('date').value;try{const j=await cget({action:'latest',date:d});if(!j.ok)throw new Error(j.error);if(j.rec){S.cp=j.rec;save()}}catch(e){setOpen();$('onote').textContent+=' (could not reach the cloud – using this phone\'s last report)';return}setOpen();calc()}
+window.addEventListener('online',()=>flush());
 /* ---------- closing ---------- */
 $('den').innerHTML=D.map((d,i)=>`<div class="den"><span>$${d.toFixed(2)}</span><input type="number" inputmode="numeric" min="0" id="d${i}" placeholder="0"><span id="a${i}">$0.00</span></div>`).join('');
 $('chips').innerHTML='<label style="width:100%;margin:0">Add expense:</label>'+V.map(v=>`<button class="chip" data-v="${v}">+ ${v}</button>`).join('');
 $('chips').onclick=e=>{const v=e.target.dataset.v;if(v){ex.push({v,a:'',f:null,u:''});drawEx()}};
 $('addw').onclick=()=>{ws.push({i:'',q:'',a:''});drawW()};
-const prevRec=d=>S.recs.filter(r=>r.date<d).sort((a,b)=>a.date<b.date?-1:1).pop();
-function setOpen(){const p=prevRec($('date').value),o=$('open');o.disabled=!!p&&!editO;if(!editO)o.value=p?p.tillEnd:S.float;$('oedit').hidden=!p;
-$('onote').textContent=p?`Carried over from the ${fd(p.date)} report`+(p.tillEnd<S.float-.004?` · ${M(S.float-p.tillEnd)} below the ${M(S.float)} standard, so today's cash tops it up first`:p.tillEnd>S.float+.004?` · includes ${M(p.tillEnd-S.float)} extra change kept`:''):'First report – enter the cash in the till at opening'}
+const prevRec=d=>{const c=S.recs.filter(r=>r.date<d);if(S.cp&&S.cp.date<d)c.push(S.cp);return c.sort((a,b)=>a.date<b.date?-1:1).pop()};
+let openTyped=false;
+function setOpen(){const p=prevRec($('date').value),o=$('open');o.disabled=!!p&&!editO;if(!editO&&(p||!openTyped))o.value=p?p.tillEnd:S.float;$('oedit').hidden=!p;
+$('onote').textContent=p?`Carried over from the ${fd(p.date)} report`+(p.tillEnd<S.float-.004?` · ${M(S.float-p.tillEnd)} below the ${M(S.float)} standard, so today's cash tops it up first`:p.tillEnd>S.float+.004?` · includes ${M(p.tillEnd-S.float)} extra change kept`:''):'First report on this phone – enter the cash left in the till from the last closing (it may be more than $500)'}
+$('open').addEventListener('input',()=>{openTyped=true});
 $('oedit').onclick=()=>{editO=true;$('open').disabled=false;$('open').focus()};
-$('date').onchange=()=>{editO=false;setOpen();calc()};
+$('date').onchange=()=>{editO=false;openTyped=false;setOpen();calc();cloudPrev()};
 function shrink(f){return new Promise(res=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const s=Math.min(1,1800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>res({b,u:URL.createObjectURL(b)}),'image/jpeg',.88);URL.revokeObjectURL(u)};im.onerror=()=>res(null);im.src=u})}
 function drawEx(){$('exl').innerHTML=ex.map((x,i)=>`<div class="ex"><div class="top"><input value="${x.v}" data-k="v" data-i="${i}" aria-label="Vendor"><input type="number" inputmode="decimal" step="0.01" placeholder="$" value="${x.a}" data-k="a" data-i="${i}"><button class="x" data-rm="${i}">×</button></div>
 <div class="photo"><button class="btn" data-ph="${i}">📷 ${x.f?'Retake':'Receipt photo'}</button>${x.u?`<img src="${x.u}">`:'<span class="miss">Receipt required</span>'}<input type="file" accept="image/*" hidden id="pf${i}" data-pf="${i}"></div></div>`).join('')||'<div class="sub">No expenses today? Leave empty.</div>';calc()}
@@ -164,6 +184,7 @@ $('go').disabled=true;$('go').textContent='Building…';
 try{await document.fonts.ready;const cv=await html2canvas($('rep'),{scale:3,backgroundColor:'#f8f4ec'}),b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.95));
 files=[new File([b],`closing-report-${d}.jpg`,{type:'image/jpeg'}),...ex.map((x,i)=>new File([x.f],`receipt-${i+1}-${x.v.replace(/\W+/g,'')}-${d}.jpg`,{type:'image/jpeg'})),new File([toast],`toast-sales-report-${d}.jpg`,{type:'image/jpeg'})];
 try{await pSave(d,files)}catch(e){alert('Report saved, but the photos could not be stored for the Manager on this browser.')}
+if(cloudOn()){if(!S.q.includes(d))S.q.push(d);save();cstat();flush()}else cstat();
 $('out').src=URL.createObjectURL(b);showFiles();$('rc').textContent=S.recs.length;$('res').hidden=false;$('res').scrollIntoView({behavior:'smooth'})}catch(e){alert('The report is saved in Manager, but the image could not be built. Tap Create closing report to try the image again.')}
 $('go').textContent='Create closing report';calc()};
 $('share').onclick=async()=>{try{if(navigator.canShare&&navigator.canShare({files}))await navigator.share({files,title:'Closing report'});else{alert('Sharing not supported here – saving images instead.');saveF(files)}}catch(e){}};
@@ -181,11 +202,13 @@ const fileRows=l=>l.map((f,i)=>`<div class="s" style="align-items:center;gap:8px
 const fileAct=(l,e)=>{const s=e.target.dataset.s,w=e.target.dataset.w;if(s!==undefined)saveF([l[s]]);if(w!==undefined)shareList([l[w]])};
 function showFiles(){$('fl').innerHTML=fileRows(files)}
 $('fl').onclick=e=>fileAct(files,e);
+$('dat').onclick=()=>{const d=$('date').value,r=S.recs.find(x=>x.date===d);if(r)shareList([new File([JSON.stringify({recs:[r],wd:[],float:S.float})],`madras-mami-data-${d}.json`,{type:'application/json'})])};
 $('mgo').onclick=()=>{jumped=false;tab(2);window.scrollTo(0,0)};
 $('dl').onclick=()=>saveF(files);$('edit').onclick=()=>{$('res').hidden=true;window.scrollTo({top:0,behavior:'smooth'})};$('newr').onclick=()=>location.reload();
 /* ---------- manager ---------- */
-let mode='w',off=0,unl=false,jumped=false;const H=p=>btoa('mm'+p);
-function lockUI(){$('lock').hidden=unl;$('mgr').hidden=!unl;if(unl){$('wdd').value=$('wdd').value||iso(new Date());if(!jumped&&S.recs.length){jumped=true;jumpTo(S.recs[S.recs.length-1].date)}else mgr();return}$('lmsg').textContent=S.pin?'Enter PIN':'Create a manager PIN (4+ digits)';$('unl').textContent=S.pin?'Unlock':'Save PIN & unlock'}
+let mode='w',off=0,unl=false,jumped=false,pulled=false;const H=p=>btoa('mm'+p);
+function lockUI(){$('lock').hidden=unl;$('mgr').hidden=!unl;if(unl&&!pulled&&cloudOn()&&S.mkey){pulled=true;pullAll()}
+if(unl){$('wdd').value=$('wdd').value||iso(new Date());if(!jumped&&S.recs.length){jumped=true;jumpTo(S.recs[S.recs.length-1].date)}else mgr();return}$('lmsg').textContent=S.pin?'Enter PIN':'Create a manager PIN (4+ digits)';$('unl').textContent=S.pin?'Unlock':'Save PIN & unlock'}
 $('unl').onclick=()=>{const v=$('pin').value.trim();if(!S.pin){if(v.length<4)return alert('Use at least 4 digits');S.pin=H(v);save();unl=true}else if(H(v)===S.pin)unl=true;else return alert('Wrong PIN');$('pin').value='';lockUI()};
 $('cpin').onclick=()=>{const v=prompt('New PIN (4+ digits)');if(v&&v.length>=4){S.pin=H(v);save();alert('PIN changed')}};
 const anchor=()=>{if(S.anchor)return S.anchor;const f=S.recs[0]?P(S.recs[0].date):new Date();f.setHours(12);f.setDate(f.getDate()-((f.getDay()+6)%7));return iso(f)};
@@ -199,7 +222,7 @@ $('prv').onclick=()=>{off--;mgr()};$('nxt').onclick=()=>{off++;mgr()};
 const sm=(a,k)=>r2(a.reduce((s,r)=>s+(+r[k]||0),0));
 function jumpTo(ds,dm){const t=new Date();t.setHours(12,0,0,0);const mon=x=>{const a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};mode=dm?'d':'w';off=dm?Math.round((P(ds)-t)/864e5):Math.round((mon(P(ds))-mon(t))/6048e5);[...$('seg').children].forEach(x=>x.className=x.dataset.m==mode?'on':'');mgr();window.scrollTo({top:0,behavior:'smooth'})}
 const storOK=()=>{try{localStorage.setItem('mmt','1');localStorage.removeItem('mmt');return true}catch(e){return false}};
-$('hist').onclick=e=>{const j=e.target.dataset.j,x=e.target.dataset.del;if(j)jumpTo(j,1);if(x&&confirm('Delete the report for '+x+'? Later days are not recalculated.')){S.recs=S.recs.filter(r=>r.date!==x);save();pDel(x).catch(()=>{});mgr()}};
+$('hist').onclick=e=>{const j=e.target.dataset.j,x=e.target.dataset.del;if(j)jumpTo(j,1);if(x&&confirm('Delete the report for '+x+'? Later days are not recalculated.')){S.recs=S.recs.filter(r=>r.date!==x);save();pDel(x).catch(()=>{});if(cloudOn()&&S.mkey)cpost({action:'del',date:x},S.mkey).catch(()=>{});mgr()}};
 const DD=(r,R)=>`<div class="mh">TILL &amp; ENVELOPE</div>${R('Opening till',r.open)}${R('+ Cash sales',r.cash)}${R('− Expenses',-r.expT)}${R('Should have',r.expected,1)}${R('Counted',r.counted)}${R('Difference',r.diff,1)}${R('💼 To envelope',r.env,1)}${R('Left in till',r.tillEnd,1)}<div class="sub" style="margin-top:6px">Closed by ${(r.by||'').replace(/</g,'&lt;')}${r.why?' · Reason: '+r.why.replace(/</g,'&lt;'):''}</div>`;
 function mgr(){const[a,b]=rng(),rs=S.recs.filter(r=>r.date>=a&&r.date<=b);const lb=mode=='d'?fd(a):`${fd(a)} – ${fd(b)}`;$('plabel').textContent=lb;
 const envIn=r2(sm(S.recs.filter(r=>r.date<=b),'env')-sm(S.wd.filter(w=>w.date<=b),'amt')),last=S.recs.filter(r=>r.date<=b).pop(),till=last?last.tillEnd:0;
@@ -216,7 +239,7 @@ const ws2=S.wd.filter(w=>w.date>=a&&w.date<=b);$('wdl').innerHTML=ws2.map(w=>`<d
 $('stor').textContent=storOK()?'':'⚠ This browser is blocking saved data, so reports will be lost when the page closes. Open the app directly from its web link in Safari or Chrome.';
 $('hist').innerHTML=[...S.recs].reverse().map(r=>`<div class="s" style="align-items:center"><span data-j="${r.date}" style="flex:1;cursor:pointer">${fd(r.date)} · net ${M(r.net)} · envelope ${M(r.env)}</span><button class="x" data-del="${r.date}">×</button></div>`).join('')||'<div class="sub">No reports saved on this device yet.</div>';
 $('pcard').hidden=mode!='d';if(mode=='d')loadP(a);
-$('sf').value=S.float;$('sa').value=anchor()}
+$('mk').value=S.mkey||'';$('cu').value=CLOUD.url||'';$('sf').value=S.float;$('sa').value=anchor()}
 $('wdadd').onclick=()=>{const v=N($('wda').value);if(!v||!$('wdd').value)return alert('Enter date and amount');S.wd.push({date:$('wdd').value,amt:v,note:$('wdn').value.trim()});S.wd.sort((x,y)=>x.date<y.date?-1:1);save();$('wda').value='';$('wdn').value='';mgr()};
 $('wdl').onclick=e=>{const i=e.target.dataset.d;if(i!==undefined&&confirm('Delete this entry?')){S.wd.splice(i,1);save();mgr()}};
 $('sf').onchange=()=>{S.float=N($('sf').value)||500;save();setOpen();calc();mgr()};$('sa').onchange=()=>{S.anchor=$('sa').value;save();mgr()};
@@ -225,13 +248,23 @@ const t=['Date,Closed by,Net sales,Cash sales,Cash tips,Expenses,Counted,Differe
 saveF([new File([t],`madras-mami-${a}_to_${b}.csv`,{type:'text/csv'})])};
 async function sumFile(){await document.fonts.ready;const cv=await html2canvas($('msum'),{scale:2,backgroundColor:getComputedStyle(document.body).backgroundColor}),b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.93));return new File([b],`madras-mami-summary-${rng()[0]}.jpg`,{type:'image/jpeg'})}
 let pf=[],ptk=0;
-async function loadP(d){const tk=++ptk;let r=[];try{r=await pGet(d)}catch(e){}if(tk!==ptk)return;pf=r.map(x=>new File([x.blob],x.name,{type:x.type||'image/jpeg'}));$('pl').innerHTML=pf.length?fileRows(pf):'<div class="sub">No photos saved for this day.</div>'}
+async function loadP(d){const tk=++ptk;let r=[];try{r=await pGet(d)}catch(e){}
+if(!r.length&&cloudOn()&&S.mkey){try{const j=await cget({action:'photos',date:d},S.mkey);if(j.ok&&j.photos.length){const fs=await Promise.all(j.photos.map(async p=>new File([await (await fetch('data:'+p.type+';base64,'+p.data)).blob()],p.name,{type:p.type})));await pSave(d,fs);r=await pGet(d)}}catch(e){}}
+if(tk!==ptk)return;pf=r.map(x=>new File([x.blob],x.name,{type:x.type||'image/jpeg'}));$('pl').innerHTML=pf.length?fileRows(pf):'<div class="sub">No photos saved for this day.</div>'}
 $('pl').onclick=e=>fileAct(pf,e);
 $('msh').onclick=async()=>{try{shareList([await sumFile()])}catch(e){}};
 $('pall').onclick=async()=>{try{shareList([await sumFile(),...pf])}catch(e){}};
 $('psv').onclick=()=>saveF(pf);
 $('bk').onclick=()=>saveF([new File([JSON.stringify(S)],`madras-mami-backup-${iso(new Date())}.json`,{type:'application/json'})]);
 $('rs').onclick=()=>$('rsf').click();
-$('rsf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.recs))throw 0;if(confirm(`Restore ${j.recs.length} reports? This replaces data on this device.`)){S=Object.assign({recs:[],wd:[],float:500,pin:'',anchor:''},j);save();location.reload()}}catch(x){alert('That is not a valid backup file.')}};
-setOpen();drawEx();drawW();calc();
+$('rsf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.recs))throw 0;if(confirm(`Add ${j.recs.length} reports from this file? Reports with the same date are replaced; everything else is kept.`)){const m=new Map(S.recs.map(r=>[r.date,r]));j.recs.forEach(r=>m.set(r.date,r));S.recs=[...m.values()].sort((x,y)=>x.date<y.date?-1:1);(j.wd||[]).forEach(w=>{if(!S.wd.some(x=>x.date===w.date&&x.amt===w.amt&&x.note===w.note))S.wd.push(w)});if(!S.pin&&j.pin)S.pin=j.pin;save();location.reload()}}catch(x){alert('That is not a valid backup file.')}};
+async function pullAll(){if(!cloudOn())return cstat('Cloud is not set up yet (see CLOUD-SETUP.md)');if(!S.mkey)return cstat('Enter the manager cloud key first');
+try{const j=await cget({action:'list'},S.mkey);if(!j.ok)throw new Error(j.error);const m=new Map(S.recs.map(r=>[r.date,r]));j.recs.forEach(r=>m.set(r.date,r));S.recs=[...m.values()].sort((a,b)=>a.date<b.date?-1:1);save();mgr();cstat(`Pulled ${j.recs.length} reports from the cloud ✓`)}catch(e){cstat('Could not read the cloud: '+e.message)}}
+$('cu').onchange=()=>{CLOUD.url=$('cu').value.trim();S.curl=CLOUD.url;save();cstat()};
+$('clink').onclick=()=>{CLOUD.url=$('cu').value.trim();S.curl=CLOUD.url;save();if(!CLOUD.url)return cstat('Paste the Web app URL first');const l=location.origin+location.pathname+'?c='+b64u(CLOUD.url),t='Madras Mami closing app – open this link once on your phone to connect it:\n'+l;if(navigator.share)navigator.share({text:t}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(t);cstat('Link copied – paste it in the WhatsApp group')}};
+$('mk').onchange=()=>{S.mkey=$('mk').value.trim();save()};
+$('cpull').onclick=()=>{S.mkey=$('mk').value.trim();save();pullAll()};
+$('cpush').onclick=()=>{if(!cloudOn())return cstat('Cloud is not set up yet (see CLOUD-SETUP.md)');S.recs.forEach(r=>{if(!S.q.includes(r.date))S.q.push(r.date)});save();flush()};
+$('ctest').onclick=async()=>{CLOUD.url=$('cu').value.trim();S.curl=CLOUD.url;S.mkey=$('mk').value.trim();save();if(!cloudOn())return cstat('Cloud is not set up yet (see CLOUD-SETUP.md)');try{const j=await cget({action:'ping'},S.mkey||CLOUD.key);cstat(!j.ok?'Rejected: '+j.error:j.manager?'Connected with manager access ✓':'Connected with the staff key only – enter the manager key above')}catch(e){cstat('Could not reach the cloud: '+e.message)}};
+setOpen();drawEx();drawW();calc();cstat();cloudPrev();flush();
 </script></body></html>
